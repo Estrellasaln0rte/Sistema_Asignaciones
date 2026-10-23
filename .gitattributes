@@ -1,0 +1,2 @@
+# Mantener finales de línea LF: los archivos se usan dentro de contenedores Linux.
+* text=auto eol=lf

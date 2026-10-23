@@ -1,0 +1,7 @@
+# Por ahora las alertas solo se ven en http://localhost:9093.
+# Aquí se configura después el envío al canal del equipo.
+route:
+  receiver: equipo
+
+receivers:
+  - name: equipo

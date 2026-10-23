@@ -1,0 +1,20 @@
+# Secretos
+.env
+infra/alertmanager/discord_webhook
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*
