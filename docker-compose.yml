@@ -86,7 +86,14 @@ services:
 
   alertmanager:
     image: prom/alertmanager:v0.28.1
-    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    # Si no existe infra/alertmanager/discord_webhook se usa el de ejemplo:
+    # Alertmanager arranca igual y las alertas solo se ven en http://localhost:9093
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        cp /etc/alertmanager/discord_webhook /tmp/discord_webhook 2>/dev/null
+        || cp /etc/alertmanager/discord_webhook.example /tmp/discord_webhook;
+        exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager
     volumes:
       - ./infra/alertmanager:/etc/alertmanager:ro
     ports:

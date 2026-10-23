@@ -1,7 +1,17 @@
-# Por ahora las alertas solo se ven en http://localhost:9093.
-# Aquí se configura después el envío al canal del equipo.
+# Envía las alertas al canal de Discord del equipo.
+# El webhook va en infra/alertmanager/discord_webhook (no se sube al repo).
+# Al arrancar, docker-compose lo copia a /tmp/discord_webhook (o el de ejemplo si no existe).
 route:
-  receiver: equipo
+  receiver: discord-equipo
+  group_by: ["alertname"]
+  group_wait: 5s
+  group_interval: 30s
+  repeat_interval: 1h
 
 receivers:
-  - name: equipo
+  - name: discord-equipo
+    discord_configs:
+      - webhook_url_file: /tmp/discord_webhook
+        send_resolved: true
+        title: '{{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} {{ .CommonLabels.alertname }}'
+        message: '{{ range .Alerts }}{{ .Annotations.resumen }} {{ .Annotations.dashboard }}{{ "\n" }}{{ end }}'
