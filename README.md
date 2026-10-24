@@ -258,3 +258,202 @@ Hazlo antes de cada prueba de carga.
 > `db/init.sql` solo se ejecuta la primera vez que se crea la base de datos. Si alguien lo
 > cambia, cada integrante debe ejecutar `docker compose down -v` y luego
 > `docker compose up -d --build` para recrearla.
+
+---
+
+## 8. Pruebas
+
+### Prueba 1 · Asignación desde el portal
+
+**Qué valida:** que un estudiante pueda asignarse a un curso y reciba la respuesta correcta en cada caso.
+
+1. Reinicia el curso (paso 7.2).
+2. Abre http://localhost:5173.
+3. En **Carné** escribe `1102124`.
+4. Haz clic en **Asignar curso** en la fila de *Ingeniería de Software I*.
+   - **Esperado:** mensaje verde *Asignación confirmada. Cupos restantes: 29*, y en la tabla el
+     curso pasa de 30 a 29 cupos.
+5. Sin cambiar el carné, haz clic otra vez en **Asignar curso** en el mismo curso.
+   - **Esperado:** mensaje *El estudiante ya está asignado a este curso*, y los cupos siguen en 29.
+6. Borra el carné y haz clic en **Asignar curso**.
+   - **Esperado:** mensaje rojo *Ingrese su carné*.
+
+**Curso inexistente** (se prueba desde la documentación de la API):
+
+1. En http://localhost:8000/docs haz clic en la fila **POST /asignaciones** para desplegarla y luego en **Try it out**.
+2. En **Request body** escribe:
+
+   ```json
+   {"estudiante_id": "1102124", "curso_id": 99}
+   ```
+
+3. Haz clic en **Execute**.
+   - **Esperado:** **Code 404** y `{"detalle": "Curso inexistente"}`.
+
+### Prueba 2 · Concurrencia: 500 solicitudes al mismo tiempo
+
+**Qué valida:** que aunque 500 estudiantes pidan el mismo curso a la vez, solo se asignen los
+30 cupos que existen, nadie quede asignado dos veces y los cupos nunca queden negativos.
+
+1. Cambia el modo a la corrección: `{"modo_atomico": true}` (paso 7.1).
+2. Reinicia el curso con `cupos = 30` (paso 7.2).
+3. En PowerShell ejecuta:
+
+   ```powershell
+   docker compose run --rm k6 run /scripts/rf2_concurrencia.js
+   ```
+
+   La primera vez descarga la imagen de k6 (unos segundos). La prueba en sí dura menos de 10 segundos.
+
+4. Al final del resultado busca estas líneas:
+
+   ```
+   ✓ asignadas_201..................: 30
+   ✓ curso_lleno_409................: 470
+   ✓ otras_respuestas...............: 0
+   ```
+
+   y un poco más arriba:
+
+   ```
+   Cupos finales del curso 1: 0 (esperado 0)
+   ```
+
+5. **La prueba pasa si las tres líneas tienen ✓.** Si alguna tiene ✗, la prueba falló: anota
+   los números y avisa al equipo.
+
+### Prueba 3 · Avalancha, alerta y corrección (guion de la demo)
+
+**Qué valida:** que el sistema detecte la saturación, avise, permita encontrar la causa con una
+traza y se recupere al activar la corrección.
+
+**Preparación:**
+
+1. Abre el dashboard **Asignaciones · SRE** en Grafana (paso 6).
+2. En otra pestaña abre http://localhost:9090/alerts.
+
+#### Paso A · Provocar el problema
+
+1. Cambia el modo a la implementación inicial: `{"modo_atomico": false}` (paso 7.1).
+2. Reinicia el curso (paso 7.2).
+3. En PowerShell lanza la avalancha:
+
+   ```powershell
+   docker compose run --rm k6
+   ```
+
+   Simula 200 estudiantes por segundo durante unos 3 minutos y medio. Deja PowerShell abierto
+   mientras corre.
+
+4. Mira el dashboard. Entre 10 y 60 segundos después deberías ver:
+
+   | Panel | Qué pasa |
+   |---|---|
+   | SLI de asignación | Pasa a **rojo**, por debajo de 95% |
+   | Presupuesto de error restante | Baja hacia 0% |
+   | Latencia de asignación | La línea p95 sube por encima de la línea roja de 2 s |
+   | Pool de conexiones | *En uso* llega a 10 y *esperando* sube |
+   | Alertas activas | Pasa de 0 a 4 |
+
+5. En http://localhost:9090/alerts recarga la página. Estas cuatro alertas pasan a **Firing**
+   (rojo). El orden puede variar, pero las tres primeras suelen adelantarse a la última:
+   - `PoolConexionesPorAgotarse` (predictiva)
+   - `LatenciaP95EnAumento` (preventiva)
+   - `PresupuestoErrorQuemaRapida` (preventiva)
+   - `SLOAsignacionIncumplido` (reactiva)
+
+#### Paso B · Encontrar la causa con una traza
+
+1. En el dashboard baja hasta el panel **Trazas lentas (más de 2 s)**.
+2. Haz clic en cualquier valor de la columna **Trace ID**. Se abre la traza a la derecha.
+3. Observa las barras de cada paso. La mayor parte del tiempo está en:
+   - `db.pool.acquire`: la petición esperando que se libere una conexión.
+   - `db.query`: la petición esperando el candado de la fila del curso.
+
+   El tiempo **no** está en el servidor web ni en la red. Esa es la causa raíz.
+4. Para ver los logs de esa misma petición: haz clic en el paso `POST /asignaciones` y luego en
+   el botón **Logs for this span**.
+
+#### Paso C · Aplicar la corrección y verificar
+
+1. Espera a que termine k6 o detenlo presionando `Ctrl + C` en PowerShell.
+2. Cambia el modo a la corrección: `{"modo_atomico": true}` (paso 7.1).
+3. Reinicia el curso (paso 7.2).
+4. Lanza otra vez la avalancha:
+
+   ```powershell
+   docker compose run --rm k6
+   ```
+
+5. **Esperado** en el dashboard en el siguiente minuto:
+   - El SLI vuelve a **verde**, por encima de 95%.
+   - La latencia p95 queda muy por debajo de 2 s (alrededor de 0.1 s).
+   - El pool de conexiones deja de saturarse.
+6. En http://localhost:9090/alerts las alertas vuelven a **Inactive** (verde) en 1 a 5 minutos.
+7. Al terminar, en PowerShell k6 debe mostrar `http_req_failed: 0.00%`.
+
+#### Cambiar la carga (opcional)
+
+Si tu computadora va lenta con 200 peticiones por segundo, usa una carga menor:
+
+```powershell
+docker compose run --rm -e RPS=100 -e DURACION=1m k6
+```
+
+- `RPS` = peticiones por segundo.
+- `DURACION` = cuánto dura la carga máxima (por ejemplo `30s`, `1m`, `3m`).
+
+---
+
+## 9. Detener el sistema
+
+Para apagar todo, conservando los datos:
+
+```powershell
+docker compose down
+```
+
+Para apagar todo y **borrar la base de datos** (la próxima vez arranca desde cero, con los cursos iniciales):
+
+```powershell
+docker compose down -v
+```
+
+Después puedes cerrar Docker Desktop.
+
+---
+
+## 10. Actualizar el proyecto
+
+Cuando alguien del equipo suba cambios a GitHub:
+
+1. Dentro de la carpeta del proyecto ejecuta:
+
+   ```powershell
+   git pull
+   ```
+
+2. Vuelve a levantar el sistema para que use el código nuevo:
+
+   ```powershell
+   docker compose up -d --build
+   ```
+
+---
+
+## 11. Problemas comunes
+
+| Lo que ves | Qué significa | Cómo resolverlo |
+|---|---|---|
+| `error during connect` o `Cannot connect to the Docker daemon` | Docker Desktop no está abierto | Abre Docker Desktop, espera **Engine running** y repite el comando |
+| `no configuration file provided: not found` | No estás en la carpeta del proyecto | Ejecuta `cd $HOME\Documents\Sistema_Asignaciones` |
+| `Bind for 0.0.0.0:5432 failed: port is already allocated` (u otro puerto) | Otro programa usa ese puerto | Cierra ese programa (ver 1.4) y ejecuta otra vez `docker compose up -d` |
+| En `docker compose ps` falta algún servicio | Ese servicio se detuvo por un error | Ejecuta `docker compose logs <servicio>` y comparte el mensaje con el equipo |
+| El portal dice *Sin conexión con el servidor* | La API todavía está arrancando | Espera 10 segundos y recarga la página |
+| Los paneles de Grafana dicen *No data* | Todavía no hay tráfico | Haz una asignación en el portal o lanza k6 |
+| El panel de trazas lentas está vacío | No hubo peticiones de más de 2 s | Es normal en modo corrección. Repite el paso A de la prueba 3 |
+| El modo volvió a `false` solo | La API se reinició y tomó el valor de `MODO_ATOMICO` del `.env` | Vuelve a cambiarlo con el paso 7.1 |
+| La computadora se pone muy lenta durante la avalancha | La carga es alta para el equipo | Usa una carga menor (ver *Cambiar la carga*) |
+| `/salud` dice `"base_de_datos":"sin conexión"` | PostgreSQL no está listo | Revisa que `postgres` diga `healthy` en `docker compose ps` |
+| `WSL 2 installation is incomplete` al abrir Docker Desktop | Falta WSL 2 | Ejecuta `wsl --install` (tabla 1.2) y reinicia |
+
