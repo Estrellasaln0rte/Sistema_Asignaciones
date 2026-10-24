@@ -71,7 +71,7 @@ Puedes cerrar el programa manualmente o forzar su cierre desde la pestaña Detal
 
 > Docker Desktop debe estar **abierto** cada vez que quieras usar el sistema.
 
-### 2.3 Comprobar la instalación
+### 2.2 Comprobar la instalación
 
 1. Abre una ventana nueva de PowerShell (no hace falta que sea como administrador).
 2. Ejecuta uno por uno:
@@ -182,8 +182,6 @@ Solo hay que hacerlo una vez.
    ✔ Container sistema_asignaciones-portal-1     Started
    ...
    ```
-   
----
 
 5. Comprueba que todo esté corriendo:
 
