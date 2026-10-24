@@ -1,7 +1,4 @@
-# Sistema de Asignaciones
-
-## como intalar, ejecutar y probar el prototipo 
-
+## Estructura del proyecto
 
 Esta guía explica, paso a paso, cómo instalar, ejecutar y probar el prototipo en tu computadora.
 
