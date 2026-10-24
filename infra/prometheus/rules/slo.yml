@@ -1,0 +1,70 @@
+# SLO: 95% de las asignaciones válidas son buenas (201/409 en menos de 2 s).
+# Presupuesto de error: 5%.
+
+groups:
+  - name: sli-asignaciones
+    rules:
+      - record: sli:asignacion:ratio_rate30s
+        expr: |
+          sum(rate(asignaciones_total{sli="buena"}[30s]))
+          /
+          sum(rate(asignaciones_total{sli=~"buena|mala"}[30s]))
+      - record: sli:asignacion:ratio_rate1m
+        expr: |
+          sum(rate(asignaciones_total{sli="buena"}[1m]))
+          /
+          sum(rate(asignaciones_total{sli=~"buena|mala"}[1m]))
+      - record: sli:asignacion:ratio_rate5m
+        expr: |
+          sum(rate(asignaciones_total{sli="buena"}[5m]))
+          /
+          sum(rate(asignaciones_total{sli=~"buena|mala"}[5m]))
+      - record: sli:asignacion:latencia_p95_1m
+        expr: histogram_quantile(0.95, sum by (le) (rate(asignacion_duracion_seconds_bucket[1m])))
+
+  # Alerta reactiva (RNF3): el SLO ya se está incumpliendo.
+  - name: slo-reactivo
+    rules:
+      - alert: SLOAsignacionIncumplido
+        expr: sli:asignacion:ratio_rate30s < 0.95
+        for: 30s
+        labels:
+          severidad: critica
+        annotations:
+          resumen: "SLI de asignación en {{ $value | humanizePercentage }} (objetivo 95%)"
+          dashboard: "http://localhost:3000/d/asignaciones-sre"
+
+  # Alertas preventivas y predictivas: avisan antes de que el estudiante lo sufra.
+  - name: slo-preventivo
+    rules:
+      # Quema rápida del presupuesto de error (multi-ventana). A este ritmo el
+      # presupuesto de la ventana crítica se agota mucho antes de terminar.
+      - alert: PresupuestoErrorQuemaRapida
+        expr: |
+          (1 - sli:asignacion:ratio_rate1m) / 0.05 > 6
+          and
+          (1 - sli:asignacion:ratio_rate5m) / 0.05 > 6
+        labels:
+          severidad: advertencia
+        annotations:
+          resumen: "El presupuesto de error se consume más de 6 veces más rápido de lo sostenible"
+
+      # Tendencia de latencia: p95 sobre el 50% del umbral antes de romper el SLO.
+      - alert: LatenciaP95EnAumento
+        expr: sli:asignacion:latencia_p95_1m > 1
+        for: 1m
+        labels:
+          severidad: advertencia
+        annotations:
+          resumen: "p95 de asignación en {{ $value | humanizeDuration }}, el umbral del SLO es 2 s"
+
+      # Pronóstico: si la tendencia sigue, el pool se agota en el próximo minuto.
+      - alert: PoolConexionesPorAgotarse
+        expr: |
+          predict_linear(max(db_pool_conexiones{estado="en_uso"})[2m:5s], 60)
+          >= scalar(max(db_pool_tamano))
+        for: 15s
+        labels:
+          severidad: advertencia
+        annotations:
+          resumen: "La tendencia indica que el pool de conexiones se agotará en menos de 60 s"
