@@ -1,7 +1,4 @@
-# Sistema de Asignaciones
-
-como intalar, ejecutar y probar el prototipo 
-
+## Estructura del proyecto
 
 Esta guía explica, paso a paso, cómo instalar, ejecutar y probar el prototipo en tu computadora.
 
@@ -207,10 +204,6 @@ Solo hay que hacerlo una vez.
    | `alertmanager` | Envía las alertas |
    | `grafana` | Dashboard |
 
-6. Espera unos 10 segundos más para que la API termine de arrancar antes de abrir las páginas.
-
----
-
 ## 6. Abrir las páginas del sistema
 
 Abre cada dirección en el navegador:
@@ -228,4 +221,40 @@ Abre cada dirección en el navegador:
 1. Entra a http://localhost:3000.
 2. En el menú de la izquierda (☰) haz clic en **Dashboards**.
 3. Abre la carpeta **SRE** y luego **Asignaciones · SRE**.
-4. El dashboard se actualiza solo cada 5 segundos. Al principio los paneles pueden decir. *No data*: todavía no hay tráfico.
+4. El dashboard se actualiza solo cada 5 segundos. *No data*: todavía no hay tráfico.
+
+---
+
+## 7. Cambiar el modo y reiniciar el curso
+
+Varias pruebas piden cambiar el modo de asignación o reiniciar el curso. Se hace desde la
+documentación de la API, sin escribir comandos.
+
+### 7.1 Cambiar el modo
+
+1. Entra a http://localhost:8000/docs.
+2. Haz clic en la fila **PUT /admin/flags** para desplegarla.
+3. Haz clic en el botón **Try it out** (a la derecha).
+4. En el cuadro **Request body** borra lo que haya y escribe:
+   - Para la **corrección**: `{"modo_atomico": true}`
+   - Para la **implementación inicial**: `{"modo_atomico": false}`
+5. Haz clic en el botón azul **Execute**.
+6. Baja hasta **Server response**. Debe decir **Code 200** y mostrar el modo nuevo, por ejemplo
+   `{"modo_atomico": true}`.
+
+Para ver qué modo está activo sin cambiarlo: despliega **GET /admin/flags**, haz clic en
+**Try it out** y luego en **Execute**.
+
+### 7.2 Reiniciar el curso
+
+Esto borra todas las asignaciones del curso *Ingeniería de Software I* y le devuelve sus cupos.
+Hazlo antes de cada prueba de carga.
+
+1. En http://localhost:8000/docs despliega **POST /admin/reiniciar**.
+2. Haz clic en **Try it out**.
+3. En el campo **cupos** deja el valor `30`.
+4. Haz clic en **Execute**.
+5. En **Server response** debe aparecer **Code 200** y `{"curso_id": 1, "cupos": 30}`.
+> `db/init.sql` solo se ejecuta la primera vez que se crea la base de datos. Si alguien lo
+> cambia, cada integrante debe ejecutar `docker compose down -v` y luego
+> `docker compose up -d --build` para recrearla.
