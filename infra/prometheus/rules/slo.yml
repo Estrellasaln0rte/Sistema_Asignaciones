@@ -48,6 +48,7 @@ groups:
           severidad: advertencia
         annotations:
           resumen: "El presupuesto de error se consume más de 6 veces más rápido de lo sostenible"
+          dashboard: "http://localhost:3000/d/asignaciones-sre"
 
       # Tendencia de latencia: p95 sobre el 50% del umbral antes de romper el SLO.
       - alert: LatenciaP95EnAumento
@@ -57,6 +58,7 @@ groups:
           severidad: advertencia
         annotations:
           resumen: "p95 de asignación en {{ $value | humanizeDuration }}, el umbral del SLO es 2 s"
+          dashboard: "http://localhost:3000/d/asignaciones-sre"
 
       # Pronóstico: si la tendencia sigue, el pool se agota en el próximo minuto.
       - alert: PoolConexionesPorAgotarse
@@ -68,3 +70,5 @@ groups:
           severidad: advertencia
         annotations:
           resumen: "La tendencia indica que el pool de conexiones se agotará en menos de 60 s"
+          dashboard: "http://localhost:3000/d/asignaciones-sre"
+

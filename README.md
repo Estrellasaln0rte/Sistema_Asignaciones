@@ -403,6 +403,17 @@ docker compose run --rm -e RPS=100 -e DURACION=1m k6
 - `RPS` = peticiones por segundo.
 - `DURACION` = cuánto dura la carga máxima (por ejemplo `30s`, `1m`, `3m`).
 
+### Prueba 4 · Reglas del SLO y alertas, sin levantar el sistema
+
+Comprueba que el SLI y las 4 alertas se calculan bien con datos simulados
+(`infra/prometheus/tests/slo_test.yml`): tráfico sano, avalancha, latencia alta y pool por agotarse.
+
+```powershell
+docker run --rm -v ${PWD}/infra/prometheus:/p -w /p --entrypoint promtool prom/prometheus:v2.54.1 test rules tests/slo_test.yml
+```
+
+**Esperado:** `SUCCESS`.
+
 ---
 
 ## 9. Detener el sistema

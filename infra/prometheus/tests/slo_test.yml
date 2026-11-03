@@ -1,0 +1,113 @@
+# Pruebas unitarias de las reglas del SLO y de las 4 alertas.
+# Se corren sin levantar el sistema (ver README, sección de pruebas):
+#   docker run --rm -v ${PWD}/infra/prometheus:/p -w /p --entrypoint promtool prom/prometheus:v2.54.1 test rules tests/slo_test.yml
+# Cada serie se escribe como "inicio+incrementoxN": N muestras cada 5 s.
+
+rule_files:
+  - ../rules/slo.yml
+
+evaluation_interval: 5s
+
+tests:
+  # 1. Tráfico sano: el SLI está en 100% y no se dispara ninguna alerta.
+  - interval: 5s
+    input_series:
+      - series: 'asignaciones_total{sli="buena"}'
+        values: '0+10x60'
+      - series: 'asignaciones_total{sli="mala"}'
+        values: '0x60'
+      - series: 'db_pool_conexiones{estado="en_uso"}'
+        values: '2x60'
+      - series: 'db_pool_tamano'
+        values: '10x60'
+    promql_expr_test:
+      - expr: sli:asignacion:ratio_rate30s
+        eval_time: 4m
+        exp_samples:
+          - labels: 'sli:asignacion:ratio_rate30s'
+            value: 1
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SLOAsignacionIncumplido
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PresupuestoErrorQuemaRapida
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PoolConexionesPorAgotarse
+        exp_alerts: []
+
+  # 2. Avalancha: a partir del minuto 2 todas las respuestas son malas.
+  #    Se dispara la alerta reactiva y la de quema del presupuesto de error.
+  - interval: 5s
+    input_series:
+      - series: 'asignaciones_total{sli="buena"}'
+        values: '0+10x24 240x36'
+      - series: 'asignaciones_total{sli="mala"}'
+        values: '0x24 0+10x36'
+    promql_expr_test:
+      - expr: sli:asignacion:ratio_rate30s
+        eval_time: 3m30s
+        exp_samples:
+          - labels: 'sli:asignacion:ratio_rate30s'
+            value: 0
+    alert_rule_test:
+      # Antes de que el SLI baje, nada está disparado.
+      - eval_time: 1m50s
+        alertname: SLOAsignacionIncumplido
+        exp_alerts: []
+      - eval_time: 3m30s
+        alertname: SLOAsignacionIncumplido
+        exp_alerts:
+          - exp_labels:
+              severidad: critica
+            exp_annotations:
+              resumen: "SLI de asignación en 0% (objetivo 95%)"
+              dashboard: "http://localhost:3000/d/asignaciones-sre"
+      - eval_time: 3m30s
+        alertname: PresupuestoErrorQuemaRapida
+        exp_alerts:
+          - exp_labels:
+              severidad: advertencia
+            exp_annotations:
+              resumen: "El presupuesto de error se consume más de 6 veces más rápido de lo sostenible"
+              dashboard: "http://localhost:3000/d/asignaciones-sre"
+
+  # 3. Latencia: el p95 sube a unos 2.4 s y se mantiene más de 1 minuto.
+  - interval: 5s
+    input_series:
+      - series: 'asignacion_duracion_seconds_bucket{le="0.5"}'
+        values: '0x60'
+      - series: 'asignacion_duracion_seconds_bucket{le="1"}'
+        values: '0x60'
+      - series: 'asignacion_duracion_seconds_bucket{le="2.5"}'
+        values: '0+10x60'
+      - series: 'asignacion_duracion_seconds_bucket{le="+Inf"}'
+        values: '0+10x60'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LatenciaP95EnAumento
+        exp_alerts:
+          - exp_labels:
+              severidad: advertencia
+            exp_annotations:
+              resumen: "p95 de asignación en 2.425s, el umbral del SLO es 2 s"
+              dashboard: "http://localhost:3000/d/asignaciones-sre"
+
+  # 4. Pronóstico: las conexiones en uso suben 1 cada 5 s hacia el tamaño
+  #    del pool (10). La alerta avisa antes de que el pool se llene.
+  - interval: 5s
+    input_series:
+      - series: 'db_pool_conexiones{estado="en_uso"}'
+        values: '0+1x30'
+      - series: 'db_pool_tamano'
+        values: '10x30'
+    alert_rule_test:
+      - eval_time: 30s
+        alertname: PoolConexionesPorAgotarse
+        exp_alerts:
+          - exp_labels:
+              severidad: advertencia
+            exp_annotations:
+              resumen: "La tendencia indica que el pool de conexiones se agotará en menos de 60 s"
+              dashboard: "http://localhost:3000/d/asignaciones-sre"
