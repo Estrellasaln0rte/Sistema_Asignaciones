@@ -414,6 +414,21 @@ docker run --rm -v ${PWD}/infra/prometheus:/p -w /p --entrypoint promtool prom/p
 
 **Esperado:** `SUCCESS`.
 
+### Prueba 5 · Respuestas de la API (RF1) con pytest
+
+Comprueba las respuestas de `POST /asignaciones` en los dos modos (inicial y atómico): 201 asignado,
+409 curso lleno, 409 ya asignado, 404 curso inexistente y 503 pool saturado, además de las
+validaciones de entrada (422 si el carné o el curso no son válidos). Las pruebas están en
+`api/tests` y crean su propio curso de prueba, que borran al terminar: no cambian los cupos de la demo.
+
+Con el sistema levantado (sección 5):
+
+```powershell
+docker compose run --rm -v ${PWD}/api/tests:/srv/tests -e OTEL_SDK_DISABLED=true api sh -c "pip install -q -r tests/requirements.txt && python -m pytest -q tests"
+```
+
+**Esperado:** `22 passed`.
+
 ---
 
 ## 9. Detener el sistema
