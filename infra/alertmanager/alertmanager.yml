@@ -14,4 +14,5 @@ receivers:
       - webhook_url_file: /tmp/discord_webhook
         send_resolved: true
         title: '{{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} {{ .CommonLabels.alertname }}'
-        message: '{{ range .Alerts }}{{ .Annotations.resumen }} {{ .Annotations.dashboard }}{{ "\n" }}{{ end }}'
+        # Una línea por alerta: severidad, resumen y enlace al dashboard.
+        message: '{{ range .Alerts }}[{{ .Labels.severidad }}] {{ .Annotations.resumen }}{{ if .Annotations.dashboard }} · {{ .Annotations.dashboard }}{{ end }}{{ "\n" }}{{ end }}'
