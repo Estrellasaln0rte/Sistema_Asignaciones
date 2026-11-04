@@ -162,7 +162,14 @@ Solo hay que hacerlo una vez.
 ## 5. Levantar el sistema
 
 1. Abre **Docker Desktop** y espera a que diga **Engine running**.
-2. En PowerShell, dentro de la carpeta del proyecto, ejecuta:
+2. En PowerShell, dentro de la carpeta del proyecto, descarga primero todas las imágenes,
+   incluida la de k6 (así la demo no depende de internet):
+
+   ```powershell
+   docker compose --profile carga pull
+   ```
+
+   Después levanta el sistema:
 
    ```powershell
    docker compose up -d --build
@@ -433,13 +440,15 @@ docker compose run --rm -v ${PWD}/api/tests:/srv/tests -e OTEL_SDK_DISABLED=true
 
 ## 9. Detener el sistema
 
-Para apagar todo, conservando los datos:
+Para apagar todo, conservando los datos (la base de datos y la **historia** de métricas, trazas y
+logs: Prometheus guarda 400 días, así se pueden comparar corridas en la fila *Historia y KPIs* del
+dashboard):
 
 ```powershell
 docker compose down
 ```
 
-Para apagar todo y **borrar la base de datos** (la próxima vez arranca desde cero, con los cursos iniciales):
+Para apagar todo y **borrar la base de datos y toda la historia** (la próxima vez arranca desde cero, con los cursos iniciales y sin métricas anteriores):
 
 ```powershell
 docker compose down -v
