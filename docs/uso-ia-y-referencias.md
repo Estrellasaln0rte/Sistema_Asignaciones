@@ -8,7 +8,7 @@ equipo.**
 
 | Herramienta | Para qué se usó | Cómo lo validó el equipo |
 |---|---|---|
-| Claude (Anthropic) | Armar la base del prototipo para el ensayo del hito 2 (`build/hito2`), proponer el plan de desarrollo y las ramas, revisar código y documentos, redactar borradores del plan de calidad, seguridad, postmortem y guion de la demo | Cada integrante es responsable de los archivos de su rama, los revisó en un pull request y los probó con las pruebas automáticas (pytest, promtool, k6) y en el ensayo de la demo |
+| Claude (Anthropic) | Armar la base del prototipo para el ensayo del hito 2 (`build/hito2`), proponer el plan de desarrollo y las ramas, revisar código y documentos, redactar borradores del plan de calidad, seguridad, postmortem y la preparación de la demo | Cada integrante es responsable de los archivos de su rama, los revisó en un pull request y los probó con las pruebas automáticas (pytest, promtool, k6) y en el ensayo de la demo |
 | __ (otra, si aplica) | | |
 
 Lo que **no** delegamos en la IA: la elección del problema y del alcance (hito 1), las decisiones

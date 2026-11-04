@@ -2,7 +2,8 @@
 
 Formato de *Site Reliability Engineering* (Google, cap. 15). Documenta el incidente que se
 reproduce en la demo. Los campos marcados con `__` se llenan con las horas que anota el
-cronometrista en la demo (sección 4 de `docs/guion-demo.md`).
+equipo durante la demo: inicio de la avalancha (T0), primer aviso en Discord (T1), activación
+de la corrección (T2) y aviso de resolución (T3).
 
 | Campo | Valor |
 |---|---|

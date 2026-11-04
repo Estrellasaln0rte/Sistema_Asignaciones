@@ -33,7 +33,7 @@ una falla de ellos durante los primeros 15 minutos del semestre.
 | SLI de asignación | ≥ 95% de peticiones válidas buenas (201 o 409 en < 2 s) | `sli:asignacion:ratio_rate30s` | Avalancha; `infra/prometheus/tests/slo_test.yml` (promtool) |
 | Integridad de cupos (RF2) | Exactamente 30 asignadas, 470 "curso lleno", 0 cupos, nadie dos veces | Contadores de k6 + consulta a `asignaciones` | `load-tests/rf2_concurrencia.js` (500 solicitudes simultáneas) |
 | Tolerancia a fallos | Con el pool agotado, responder 503 en ≤ `POOL_TIMEOUT_S` (5 s) en lugar de colgarse | Código `503` en `asignaciones_total{status}` | `test_503_pool_saturado` (pytest) |
-| Detección | Aviso en Discord ≤ 60 s desde que el SLI cae bajo 95%; ningún aviso con tráfico normal | Hora de la alerta en Alertmanager | Demo (MTTD en `docs/guion-demo.md`); promtool, caso "tráfico sano" sin alertas |
+| Detección | Aviso en Discord ≤ 60 s desde que el SLI cae bajo 95%; ningún aviso con tráfico normal | Hora de la alerta en Alertmanager | Demo (MTTD en `docs/postmortem.md`); promtool, caso "tráfico sano" sin alertas |
 
 **Resultados:** RF2 dio 30 / 470 / 0 y 30 estudiantes distintos en la tabla `asignaciones`
 (revisión del 4 nov). Las pruebas de promtool del SLI y de las 4 alertas pasan.
