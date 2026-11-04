@@ -2,6 +2,9 @@
 .env
 infra/alertmanager/discord_webhook
 
+# Guion interno de la demo (solo para el equipo)
+docs/guion-demo.md
+
 # Historia simulada: se genera con historia/generar_historia.py (no se sube, pesa ~6 MB)
 historia/historia.om
 

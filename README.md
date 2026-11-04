@@ -1,4 +1,32 @@
+# Sistema de Asignaciones · Prototipo SRE
+
+Prototipo del curso Ingeniería de Software I (Universidad Rafael Landívar, 2.º ciclo 2026),
+tema **Observabilidad / SRE**. Resuelve una sola funcionalidad de punta a punta, **asignar un
+curso**, y muestra cómo SRE detecta, diagnostica, corrige, verifica y previene la saturación del
+portal el día de asignación:
+
+- **RF1 y RF2:** asignación con cupos, sin cupos negativos ni estudiantes asignados dos veces,
+  aunque 500 lo pidan a la vez.
+- **RNF1:** métricas, logs estructurados y trazas con OpenTelemetry.
+- **RNF2:** dashboard en Grafana que se actualiza cada 5 s.
+- **RNF3:** SLO de 95% de asignaciones buenas en menos de 2 s, con 4 alertas (predictiva,
+  preventivas y reactiva) que llegan a Discord.
+- **Historia:** las métricas se guardan 400 días, con KPIs por periodo y un año simulado para
+  predecir el próximo pico.
+
 ## Estructura del proyecto
+
+| Carpeta o archivo | Qué contiene |
+|---|---|
+| `api/` | API en Python (FastAPI): asignación, feature flag `modo_atomico`, instrumentación y pruebas (`api/tests`) |
+| `portal/` | Portal del estudiante en React, servido por Nginx |
+| `db/init.sql` | Esquema de PostgreSQL y los 3 cursos iniciales |
+| `infra/` | Configuración de OpenTelemetry Collector, Prometheus (reglas del SLO y sus pruebas), Alertmanager, Tempo, Loki y Grafana (2 dashboards) |
+| `load-tests/` | Pruebas de carga con k6: avalancha y concurrencia de RF2 |
+| `historia/` | Generador del año simulado de asignaciones |
+| `docs/` | Entregables: C4, plan de calidad, seguridad, postmortem, historia, uso de IA (ver sección 11) |
+| `.github/workflows/ci.yml` | CI: pytest, pruebas del SLO y build en cada push y pull request |
+| `docker-compose.yml` | Levanta los 10 servicios con un solo comando |
 
 Esta guía explica, paso a paso, cómo instalar, ejecutar y probar el prototipo en tu computadora.
 
@@ -10,7 +38,9 @@ Esta guía explica, paso a paso, cómo instalar, ejecutar y probar el prototipo 
 
 ## 1. Requisitos
 
-**Cómo revisar si la virtualización está activada:**
+### 1.1 Virtualización activada
+
+Docker necesita que la virtualización del procesador esté activada. Para revisarlo:
 
 1. Presiona `Ctrl + Shift + Esc` para abrir el **Administrador de tareas**.
 2. Ve a la pestaña **Rendimiento** y haz clic en **CPU**.
@@ -45,15 +75,17 @@ El sistema usa estos puertos de tu computadora. Ningún otro programa debe estar
 | 9090 | Prometheus |
 | 9093 | Alertmanager |
 
-Para verificar que ningún otro programa esté ocupando estos puertos en tu máquina ejecuta en PowerShell y ejecuta 
-```Get-NetTCPConnection -LocalPort 3000,3100,4317,4318,5173,5432,8000,9090,9093 -ErrorAction SilentlyContinue | Select-Object LocalPort, State, OwningProcess
+Para verificar que ningún otro programa esté ocupando estos puertos, ejecuta en PowerShell:
+
+```powershell
+Get-NetTCPConnection -LocalPort 3000,3100,4317,4318,5173,5432,8000,9090,9093 -ErrorAction SilentlyContinue | Select-Object LocalPort, State, OwningProcess
 ```
 
 Si la consola no devuelve nada, todos los puertos están libres.
 Si aparece una tabla, la columna LocalPort indica el puerto ocupado y la columna OwningProcess muestra el identificador del proceso (PID) que lo está usando.
 
 **Liberar un puerto ocupado:**
-Para saber qué programa es el duño de ese PID, ejecuta en PowerShell `tasklist /FI "PID eq [Número_PID]"`, reemplaza [Número_PID] por el número que obtuviste en el paso anterior.
+Para saber qué programa es el dueño de ese PID, ejecuta en PowerShell `tasklist /FI "PID eq [Número_PID]"`, reemplaza [Número_PID] por el número que obtuviste en el paso anterior.
 
 Puedes cerrar el programa manualmente o forzar su cierre desde la pestaña Detalles del Administrador de tareas de Windows buscando ese mismo PID.
 
@@ -222,6 +254,7 @@ Abre cada dirección en el navegador:
 | Grafana | http://localhost:3000 | Página de inicio de Grafana (no pide usuario ni contraseña) |
 | Prometheus, alertas | http://localhost:9090/alerts | Lista de reglas de alerta en verde (*Inactive*) |
 | Alertmanager | http://localhost:9093 | Lista de alertas (vacía si no hay problemas) |
+| Administración desde el portal | http://localhost:5173/api/admin/flags | **403 Forbidden**: las rutas de administración están bloqueadas desde el portal (se usan solo en http://localhost:8000/docs) |
 
 **Para abrir el dashboard en Grafana:**
 
@@ -229,6 +262,13 @@ Abre cada dirección en el navegador:
 2. En el menú de la izquierda (☰) haz clic en **Dashboards**.
 3. Abre la carpeta **SRE** y luego **Asignaciones · SRE**.
 4. El dashboard se actualiza solo cada 5 segundos. *No data*: todavía no hay tráfico.
+
+Al final del dashboard está la fila **Historia y KPIs**: resume lo ocurrido en el rango de tiempo
+elegido arriba a la derecha (cumplimiento del SLO, presupuesto de error consumido, pico del pool,
+tiempo con el SLO incumplido, y la comparación entre el modo inicial y el atómico).
+
+En la misma carpeta **SRE** está el dashboard **Historia anual · datos simulados**, que se llena
+después de cargar el año simulado (prueba 6).
 
 ---
 
@@ -264,7 +304,8 @@ Hazlo antes de cada prueba de carga.
 5. En **Server response** debe aparecer **Code 200** y `{"curso_id": 1, "cupos": 30}`.
 > `db/init.sql` solo se ejecuta la primera vez que se crea la base de datos. Si alguien lo
 > cambia, cada integrante debe ejecutar `docker compose down -v` y luego
-> `docker compose up -d --build` para recrearla.
+> `docker compose up -d --build` para recrearla. Ojo: `down -v` también borra la historia de
+> métricas, trazas y logs, y el año simulado (hay que volver a cargarlo con la prueba 6).
 
 ---
 
@@ -284,6 +325,8 @@ Hazlo antes de cada prueba de carga.
    - **Esperado:** mensaje *El estudiante ya está asignado a este curso*, y los cupos siguen en 29.
 6. Borra el carné y haz clic en **Asignar curso**.
    - **Esperado:** mensaje rojo *Ingrese su carné*.
+7. Escribe `abc` en **Carné** y haz clic en **Asignar curso**.
+   - **Esperado:** mensaje rojo *El carné debe tener de 7 a 10 dígitos, sin letras ni espacios*.
 
 **Curso inexistente** (se prueba desde la documentación de la API):
 
@@ -329,7 +372,7 @@ Hazlo antes de cada prueba de carga.
 5. **La prueba pasa si las tres líneas tienen ✓.** Si alguna tiene ✗, la prueba falló: anota
    los números y avisa al equipo.
 
-### Prueba 3 · Avalancha, alerta y corrección (guion de la demo)
+### Prueba 3 · Avalancha, alerta y corrección (escenario de la demo)
 
 **Qué valida:** que el sistema detecte la saturación, avise, permita encontrar la causa con una
 traza y se recupere al activar la corrección.
@@ -398,6 +441,9 @@ traza y se recupere al activar la corrección.
    - El pool de conexiones deja de saturarse.
 6. En http://localhost:9090/alerts las alertas vuelven a **Inactive** (verde) en 1 a 5 minutos.
 7. Al terminar, en PowerShell k6 debe mostrar `http_req_failed: 0.00%`.
+8. En el dashboard, en la fila **Historia y KPIs** con el rango *Last 15 minutes*, los paneles
+   *SLI por modo* y *Latencia p95 por modo* muestran **inicial** en rojo junto a **atomico** en
+   verde: el antes y el después de la corrección.
 
 #### Cambiar la carga (opcional)
 
@@ -435,6 +481,35 @@ docker compose run --rm -v ${PWD}/api/tests:/srv/tests -e OTEL_SDK_DISABLED=true
 ```
 
 **Esperado:** `22 passed`.
+
+### Prueba 6 · Historia anual simulada
+
+**Qué valida:** que Prometheus conserve un año de historia y que el dashboard permita encontrar
+los días críticos, la facultad que genera el pico y la próxima fecha de riesgo. Los datos son
+**simulados** y usan métricas aparte (`historico_*`): no afectan el SLO ni las alertas. Detalle en
+`docs/historia-anual.md`.
+
+Con el sistema levantado, se hace **una sola vez** (y otra vez después de un `down -v`):
+
+```powershell
+docker compose run --rm --no-deps -v "${PWD}/historia:/historia" api python /historia/generar_historia.py /historia/historia.om
+docker compose stop prometheus
+docker compose --profile historia run --rm historia
+docker compose up -d prometheus
+```
+
+1. El primer comando debe decir `Historia simulada: 8760 horas (365 días), 9 eventos`.
+2. Abre Grafana → **Dashboards** → **SRE** → **Historia anual · datos simulados**.
+3. **Esperado:** *Pico de tráfico del año* ≈ 12 140, *Peor SLI del año* 54%, *Horas con el SLO
+   incumplido* 14, *Días críticos* 7, y la tabla de días críticos con el 6 de julio y el 12 de
+   enero arriba.
+
+### Prueba 7 · Integración continua (automática)
+
+Cada `push` y cada pull request hacia `dev` o `main` corre en GitHub Actions
+(`.github/workflows/ci.yml`) la prueba 5 (pytest), la prueba 4 (promtool) y la construcción de
+la API y el portal. Se revisa en GitHub, pestaña **Actions**: los 3 trabajos deben quedar en
+verde ✓.
 
 ---
 
@@ -476,19 +551,14 @@ Cuando alguien del equipo suba cambios a GitHub:
 
 ---
 
-## 11. Problemas comunes
+## 11. Documentación del proyecto
 
-| Lo que ves | Qué significa | Cómo resolverlo |
-|---|---|---|
-| `error during connect` o `Cannot connect to the Docker daemon` | Docker Desktop no está abierto | Abre Docker Desktop, espera **Engine running** y repite el comando |
-| `no configuration file provided: not found` | No estás en la carpeta del proyecto | Ejecuta `cd $HOME\Documents\Sistema_Asignaciones` |
-| `Bind for 0.0.0.0:5432 failed: port is already allocated` (u otro puerto) | Otro programa usa ese puerto | Cierra ese programa (ver 1.4) y ejecuta otra vez `docker compose up -d` |
-| En `docker compose ps` falta algún servicio | Ese servicio se detuvo por un error | Ejecuta `docker compose logs <servicio>` y comparte el mensaje con el equipo |
-| El portal dice *Sin conexión con el servidor* | La API todavía está arrancando | Espera 10 segundos y recarga la página |
-| Los paneles de Grafana dicen *No data* | Todavía no hay tráfico | Haz una asignación en el portal o lanza k6 |
-| El panel de trazas lentas está vacío | No hubo peticiones de más de 2 s | Es normal en modo corrección. Repite el paso A de la prueba 3 |
-| El modo volvió a `false` solo | La API se reinició y tomó el valor de `MODO_ATOMICO` del `.env` | Vuelve a cambiarlo con el paso 7.1 |
-| La computadora se pone muy lenta durante la avalancha | La carga es alta para el equipo | Usa una carga menor (ver *Cambiar la carga*) |
-| `/salud` dice `"base_de_datos":"sin conexión"` | PostgreSQL no está listo | Revisa que `postgres` diga `healthy` en `docker compose ps` |
-| `WSL 2 installation is incomplete` al abrir Docker Desktop | Falta WSL 2 | Ejecuta `wsl --install` (tabla 1.2) y reinicia |
-
+| Documento | Entregable del enunciado |
+|---|---|
+| `docs/c4.md` | Diagrama C4 de contenedores y trade-offs de arquitectura |
+| `docs/plan-calidad.md` | Plan de calidad (ISO/IEC 25010) |
+| `docs/seguridad-portal.md` y `docs/seguridad.md` | Análisis de seguridad (CIA y OWASP) del portal, la API y la infraestructura |
+| `docs/instrumentacion.md` | Señales de OpenTelemetry y correlación traza ↔ log |
+| `docs/postmortem.md` | Postmortem del incidente de la demo (MTTD y MTTR) |
+| `docs/historia-y-kpis.md` y `docs/historia-anual.md` | Historia, tendencias, KPIs y predicción |
+| `docs/uso-ia-y-referencias.md` | Declaración del uso de IA y referencias |

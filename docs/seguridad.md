@@ -19,7 +19,7 @@ de datos y el stack de observabilidad. Alcance: el prototipo tal como lo levanta
 - **Riesgo:** `/admin/flags` y `/admin/reiniciar` cambian el comportamiento y borran asignaciones
   sin autenticación.
 - **Mitigación aplicada:** `portal/nginx.conf` responde **403** a `/api/admin/`, así que desde el
-  portal público no se alcanzan. Se demuestra en vivo (bloque 1 del guion).
+  portal público no se alcanzan. Se demuestra en vivo en la demo (README, sección 6).
 - **Riesgo residual:** el puerto 8000 de la API sigue publicado en `localhost` para operar la
   demo. En producción la API no se publicaría y `/admin` exigiría un token de operador.
 
