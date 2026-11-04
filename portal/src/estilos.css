@@ -1,0 +1,135 @@
+/* Paleta del portal. Los colores de estado (ok, lleno, error) quedan fuera de la paleta
+   azul a propósito: verde, naranja y rojo se distinguen de un vistazo. */
+:root {
+  --azul-noche: #001973;
+  --azul-petroleo: #025373;
+  --azul-acero: #4e84a6;
+  --azul-cielo: #69a7bf;
+  --azul-hielo: #d0e5f2;
+
+  --ok: #1b7f3b;
+  --lleno: #a15c00;
+  --error: #b00020;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  color: var(--azul-noche);
+  background: var(--azul-hielo);
+}
+
+.encabezado {
+  background: linear-gradient(90deg, var(--azul-noche), var(--azul-petroleo));
+  color: #fff;
+  padding: 20px 16px;
+  border-bottom: 4px solid var(--azul-cielo);
+}
+
+.encabezado h1 {
+  max-width: 720px;
+  margin: 0 auto;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.contenido {
+  max-width: 720px;
+  margin: 32px auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 25, 115, 0.12);
+}
+
+.campo-carne {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--azul-petroleo);
+}
+
+input {
+  padding: 8px 10px;
+  font-size: 1rem;
+  color: var(--azul-noche);
+  border: 1px solid var(--azul-acero);
+  border-radius: 6px;
+}
+
+input:focus {
+  outline: 2px solid var(--azul-cielo);
+  outline-offset: 1px;
+}
+
+button {
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--azul-petroleo);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--azul-noche);
+}
+
+button:disabled {
+  background: var(--azul-acero);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mensaje {
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  font-weight: 600;
+  border-left: 4px solid currentColor;
+  border-radius: 4px;
+  background: #f5f9fc;
+}
+
+.mensaje.ok {
+  color: var(--ok);
+}
+
+.mensaje.lleno {
+  color: var(--lleno);
+}
+
+.mensaje.error {
+  color: var(--error);
+}
+
+.mensaje button {
+  margin-left: 8px;
+}
+
+table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+
+th {
+  padding: 10px;
+  color: #fff;
+  background: var(--azul-petroleo);
+}
+
+td {
+  padding: 10px;
+  border-bottom: 1px solid var(--azul-hielo);
+}
+
+tbody tr:hover {
+  background: #eef6fb;
+}

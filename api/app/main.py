@@ -9,7 +9,8 @@ import os
 import time
 
 import psycopg
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -42,13 +43,32 @@ app = FastAPI(title="Sistema de Asignaciones")
 FastAPIInstrumentor.instrument_app(app)
 
 
+# Carné: letras, dígitos o guiones, de 1 a 20 caracteres, sin espacios.
+# El portal es más estricto (7 a 10 dígitos); aquí se aceptan también los
+# identificadores de las pruebas de carga (est-1-2, rf2-15).
+FORMATO_CARNE = r"^[A-Za-z0-9-]{1,20}$"
+
+
 class Solicitud(BaseModel):
-    estudiante_id: str = Field(min_length=1, max_length=40)
-    curso_id: int
+    estudiante_id: str = Field(pattern=FORMATO_CARNE)
+    curso_id: int = Field(gt=0)
 
 
 class Flags(BaseModel):
     modo_atomico: bool
+
+
+@app.exception_handler(RequestValidationError)
+def solicitud_invalida(request: Request, exc: RequestValidationError):
+    """422 con un `detalle` en español, el mismo formato que el resto de respuestas."""
+    campos = {str(e["loc"][-1]) for e in exc.errors()}
+    if "estudiante_id" in campos:
+        detalle = "Carné inválido: use de 1 a 20 letras, dígitos o guiones, sin espacios"
+    elif "curso_id" in campos:
+        detalle = "El curso debe ser un número entero positivo"
+    else:
+        detalle = "Solicitud inválida"
+    return JSONResponse(status_code=422, content={"detalle": detalle})
 
 
 @app.get("/salud")

@@ -1,0 +1,3 @@
+# Solo para las pruebas: no se instalan en la imagen de la API.
+pytest==8.3.3
+httpx==0.27.2

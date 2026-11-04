@@ -1,0 +1,61 @@
+# Integración continua: cada pull request hacia dev o main corre las mismas pruebas
+# que el README pide correr a mano. Si algo falla, GitHub marca el PR en rojo.
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  api:
+    name: API · pytest (RF1)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: asignaciones
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U app -d asignaciones"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://app:app@localhost:5432/asignaciones
+      PGPASSWORD: app
+      OTEL_SDK_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Crear el esquema de la base de datos
+        run: psql -h localhost -U app -d asignaciones -f db/init.sql
+      - name: Instalar dependencias
+        run: pip install -r api/requirements.txt -r api/tests/requirements.txt
+      - name: Pruebas de RF1 (201, 409, 404, 503, 422) en los dos modos
+        working-directory: api
+        run: python -m pytest -q tests
+
+  slo:
+    name: SLO · promtool (RNF3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revisar la sintaxis de las reglas
+        run: docker run --rm -v "$PWD/infra/prometheus:/p" -w /p --entrypoint promtool prom/prometheus:v2.54.1 check rules rules/slo.yml
+      - name: Pruebas unitarias del SLI y de las 4 alertas
+        run: docker run --rm -v "$PWD/infra/prometheus:/p" -w /p --entrypoint promtool prom/prometheus:v2.54.1 test rules tests/slo_test.yml
+
+  build:
+    name: Build · imágenes y compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar docker-compose.yml
+        run: docker compose config --quiet
+      - name: Construir la API y el portal
+        run: docker compose build api portal
