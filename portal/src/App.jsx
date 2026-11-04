@@ -63,52 +63,54 @@ export default function App() {
     }
   }
 
-  const colores = { ok: "#1b7f3b", lleno: "#a15c00", error: "#b00020" };
-
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", maxWidth: 640, margin: "40px auto", padding: "0 16px" }}>
-      <h1>Asignación de cursos</h1>
-      <label>
-        Carné:{" "}
-        <input
-          value={estudiante}
-          onChange={(e) => setEstudiante(e.target.value)}
-          placeholder="1102124"
-          inputMode="numeric"
-          maxLength={10}
-        />
-      </label>
-      {mensaje && (
-        <p role="status" style={{ color: colores[mensaje.tipo], fontWeight: 600 }}>
-          {mensaje.texto}
-        </p>
-      )}
-      {errorCursos && (
-        <p role="alert" style={{ color: colores.error }}>
-          No se pudo cargar la lista de cursos.{" "}
-          <button onClick={cargarCursos}>Reintentar</button>
-        </p>
-      )}
-      <table style={{ width: "100%", marginTop: 16, borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th align="left">Curso</th>
-            <th align="right">Cupos</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {cursos.map((c) => (
-            <tr key={c.id}>
-              <td>{c.codigo} · {c.nombre}</td>
-              <td align="right">{c.cupos}</td>
-              <td align="right">
-                <button disabled={enviando} onClick={() => asignar(c.id)}>Asignar curso</button>
-              </td>
+    <>
+      <header className="encabezado">
+        <h1>Asignación de cursos</h1>
+      </header>
+      <main className="contenido">
+        <label className="campo-carne">
+          Carné:
+          <input
+            value={estudiante}
+            onChange={(e) => setEstudiante(e.target.value)}
+            placeholder="1102124"
+            inputMode="numeric"
+            maxLength={10}
+          />
+        </label>
+        {mensaje && (
+          <p role="status" className={`mensaje ${mensaje.tipo}`}>
+            {mensaje.texto}
+          </p>
+        )}
+        {errorCursos && (
+          <p role="alert" className="mensaje error">
+            No se pudo cargar la lista de cursos.
+            <button onClick={cargarCursos}>Reintentar</button>
+          </p>
+        )}
+        <table>
+          <thead>
+            <tr>
+              <th align="left">Curso</th>
+              <th align="right">Cupos</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </main>
+          </thead>
+          <tbody>
+            {cursos.map((c) => (
+              <tr key={c.id}>
+                <td>{c.codigo} · {c.nombre}</td>
+                <td align="right">{c.cupos}</td>
+                <td align="right">
+                  <button disabled={enviando} onClick={() => asignar(c.id)}>Asignar curso</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </main>
+    </>
   );
 }
